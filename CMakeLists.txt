@@ -66,11 +66,12 @@ set(vst3sdk_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/vst3sdk)
 add_subdirectory(lib/vst3sdk)
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    foreach(vstgui_target vstgui vstgui_support)
+    foreach(vstgui_target vstgui vstgui_support vstgui_uidescription)
         if(TARGET ${vstgui_target})
             target_compile_options(${vstgui_target}
                 PRIVATE -Wno-error=unused-but-set-variable
                 PRIVATE -Wno-error=deprecated-declarations
+                PRIVATE -Wno-error=nan-infinity-disabled
             )
         endif()
     endforeach()
@@ -144,13 +145,14 @@ elseif(APPLE)
     target_link_libraries(${target}
         PRIVATE ${CMAKE_DL_LIBS}
     )
+    set(_beatrice_vst3_bundle_dir "${CMAKE_BINARY_DIR}/VST3/$<CONFIG>/$<TARGET_FILE_NAME:${target}>.vst3")
     add_custom_command(
         TARGET ${target}
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${target}>/../Resources/beatrice"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${BEATRICE_MAC_RUNTIME}" "$<TARGET_FILE_DIR:${target}>/../Resources/beatrice/${BEATRICE_MAC_RUNTIME_FILENAME}"
-        COMMAND codesign --force --sign - "$<TARGET_FILE_DIR:${target}>/../Resources/beatrice/${BEATRICE_MAC_RUNTIME_FILENAME}"
-        COMMAND codesign --force --sign - "$<TARGET_FILE_DIR:${target}>/../.."
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_beatrice_vst3_bundle_dir}/Contents/Resources/beatrice"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${BEATRICE_MAC_RUNTIME}" "${_beatrice_vst3_bundle_dir}/Contents/Resources/beatrice/${BEATRICE_MAC_RUNTIME_FILENAME}"
+        COMMAND codesign --force --sign - "${_beatrice_vst3_bundle_dir}/Contents/Resources/beatrice/${BEATRICE_MAC_RUNTIME_FILENAME}"
+        COMMAND codesign --force --sign - "${_beatrice_vst3_bundle_dir}"
         COMMENT "Copying Beatrice macOS runtime"
     )
 else()
@@ -227,6 +229,11 @@ if(APPLE AND BEATRICE_ENABLE_AUV2)
     target_include_directories(${auv2_target}
         PRIVATE "${SMTG_COREAUDIO_SDK_PATH}"
         PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/AudioUnits"
+        PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/AudioUnits/AUPublic"
+        PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/AudioUnits/AUPublic/AUBase"
+        PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/AudioUnits/AUPublic/AUCarbonViewBase"
+        PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/AudioUnits/AUPublic/OtherBases"
+        PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/AudioUnits/AUPublic/Utility"
         PRIVATE "${SMTG_COREAUDIO_SDK_PATH}/PublicUtility"
     )
     target_link_libraries(${auv2_target}
