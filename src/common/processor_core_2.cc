@@ -268,6 +268,12 @@ auto ProcessorCore2::ResetContext() -> ErrorCode {
     error = err;
   }
 
+  if (IsLoaded()) {
+    std::copy_n(codebooks_.data(),
+                BEATRICE_20RC0_CODEBOOK_SIZE * BEATRICE_20RC0_PHONE_CHANNELS,
+                running_codebook_.begin());
+  }
+
   return error;
 }
 
