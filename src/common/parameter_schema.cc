@@ -367,6 +367,14 @@ const ParameterSchema kSchema = [] {
              return vc.GetCore()->SetVQNumNeighbors(
                  static_cast<int>(std::round(value)));
            })},
+      {ParameterID::kCodebookAlpha,
+       NumberParameter(
+           u8"Codebook EMA Alpha"s, 0.2, 0.01, 1.0, u8""s, 100,
+           u8"CB-EMA"s, parameter_flag::kCanAutomate,
+           [](ControllerCore&, double) { return ErrorCode::kSuccess; },
+           [](ProcessorProxy& vc, const double value) {
+             return vc.GetCore()->SetCodebookAlpha(value);
+           })},
   });
 
   for (auto i = 0; i < kMaxNSpeakers + 1;

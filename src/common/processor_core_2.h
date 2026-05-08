@@ -86,6 +86,7 @@ class ProcessorCore2 : public ProcessorCoreBase {
   auto SetMinSourcePitch(double /*min_source_pitch*/) -> ErrorCode override;
   auto SetMaxSourcePitch(double /*max_source_pitch*/) -> ErrorCode override;
   auto SetVQNumNeighbors(int /*vq_num_neighbors*/) -> ErrorCode override;
+  auto SetCodebookAlpha(double /*alpha*/) -> ErrorCode override;
   auto SetSpeakerMorphingWeight(int /*target_speaker*/,
                                 double /*morphing weight*/
                                 )      // NOLINT(whitespace/parens)
@@ -116,6 +117,7 @@ class ProcessorCore2 : public ProcessorCoreBase {
   double min_source_pitch_ = 33.125;
   double max_source_pitch_ = 80.875;
   int vq_num_neighbors_ = 0;
+  float codebook_alpha_ = 0.2f;
 
   resampler::AnyFreqInOut<ConvertWithModelBlockSize> any_freq_in_out_;
 
@@ -150,6 +152,7 @@ class ProcessorCore2 : public ProcessorCoreBase {
   std::mt19937 speaker_morphing_codebook_lottery_engine_;
   std::discrete_distribution<int> speaker_morphing_codebook_lottery_;
 #endif
+  AlignedVector<float, 64> running_codebook_;
   SphericalAverage<float, BEATRICE_WAVEFORM_GENERATOR_HIDDEN_CHANNELS>
       sph_avg_a_;
   std::array<

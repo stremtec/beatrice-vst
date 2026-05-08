@@ -83,16 +83,23 @@ void ProcessorCore2::Process1(const float* const input, float* const output) {
                                    BEATRICE_20RC0_PHONE_CHANNELS));
     }
 #else
-    // 重みを抽選確率として用いて毎フレームランダムな話者ののものを抽選で選ぶ場合
+    // 重みを抽選確率として用いて毎フレームランダムな話者のものを抽選で選び、
+    // EMA でブレンドすることで Lottery のジッターを低減する。
     // この場合も codebook のサイズは (n_speaker_+1)ではなくて(n_speaker_)で十分
     // discrete_distribution::param() は内部で std::vector を確保するので
     // ここでは抽選のみ行い、重み更新は SetSpeakerMorphingWeight 側に置く。
     auto idx = speaker_morphing_codebook_lottery_(
         speaker_morphing_codebook_lottery_engine_);
-    Beatrice20rc0_SetCodebook(
-        phone_context_,
-        codebooks_.data() + idx * (BEATRICE_20RC0_CODEBOOK_SIZE *
-                                   BEATRICE_20RC0_PHONE_CHANNELS));
+    const float* __restrict src =
+        std::assume_aligned<64>(
+            codebooks_.data() + idx * (BEATRICE_20RC0_CODEBOOK_SIZE *
+                                       BEATRICE_20RC0_PHONE_CHANNELS));
+    float* __restrict dst = std::assume_aligned<64>(running_codebook_.data());
+    const auto n = BEATRICE_20RC0_CODEBOOK_SIZE * BEATRICE_20RC0_PHONE_CHANNELS;
+    for (int i = 0; i < n; ++i) {
+      dst[i] = codebook_alpha_ * src[i] + (1.0f - codebook_alpha_) * dst[i];
+    }
+    Beatrice20rc0_SetCodebook(phone_context_, dst);
 #endif
 
     if (speaker_morphing_state_counter_ == 0) {
@@ -329,6 +336,12 @@ auto ProcessorCore2::LoadModel(const ModelConfig& /*config*/,
                                                  BEATRICE_20RC0_PHONE_CHANNELS),
               BEATRICE_20RC0_CODEBOOK_SIZE * BEATRICE_20RC0_PHONE_CHANNELS,
               0.0f);
+  // running_codebook_ を 0 番目の話者の codebook で初期化
+  running_codebook_.resize(BEATRICE_20RC0_CODEBOOK_SIZE *
+                           BEATRICE_20RC0_PHONE_CHANNELS);
+  std::copy_n(codebooks_.data(),
+              BEATRICE_20RC0_CODEBOOK_SIZE * BEATRICE_20RC0_PHONE_CHANNELS,
+              running_codebook_.begin());
   std::fill_n(additive_speaker_embeddings_.data() +
                   n_speakers_ * BEATRICE_WAVEFORM_GENERATOR_HIDDEN_CHANNELS,
               BEATRICE_WAVEFORM_GENERATOR_HIDDEN_CHANNELS, 0.0f);
@@ -567,6 +580,12 @@ auto ProcessorCore2::SetVQNumNeighbors(const int new_vq_num_neighbors)
     -> ErrorCode {
   vq_num_neighbors_ = std::clamp(new_vq_num_neighbors, 0, 8);
   Beatrice20rc0_SetVQNumNeighbors(phone_context_, vq_num_neighbors_);
+  return ErrorCode::kSuccess;
+}
+
+auto ProcessorCore2::SetCodebookAlpha(const double new_alpha) -> ErrorCode {
+  codebook_alpha_ = static_cast<float>(
+      std::clamp(new_alpha, 0.01, 1.0));
   return ErrorCode::kSuccess;
 }
 

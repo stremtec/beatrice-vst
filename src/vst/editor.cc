@@ -154,6 +154,8 @@ auto PLUGIN_API Editor::open(void* const parent,
              0.5f);
   MakeSlider(context, static_cast<ParamID>(ParameterID::kVQNumNeighbors), 0,
              1.0f, 1.0f);
+  MakeSlider(context, static_cast<ParamID>(ParameterID::kCodebookAlpha), 2, 0.01f,
+             0.005f);
   MakeModelVoiceDescription(context);
   EndGroup(context);
   EndColumn(context);
@@ -312,6 +314,10 @@ void Editor::SyncParameterAvailability() {
       controls_.at(static_cast<ParamID>(ParameterID::kVQNumNeighbors)));
   vq_num_neighbors_slider->SetEnabled(model_config_->model.VersionInt() >= 2);
   vq_num_neighbors_slider->setDirty();
+  auto* const codebook_alpha_slider = static_cast<Slider*>(
+      controls_.at(static_cast<ParamID>(ParameterID::kCodebookAlpha)));
+  codebook_alpha_slider->SetEnabled(model_config_->model.VersionInt() >= 2);
+  codebook_alpha_slider->setDirty();
 }
 
 // model_selector->getPath() をもとに

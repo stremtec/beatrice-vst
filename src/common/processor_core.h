@@ -76,6 +76,10 @@ class ProcessorCoreBase {
     return ErrorCode::kSuccess;
   }
 
+  virtual auto SetCodebookAlpha(double /*alpha*/) -> ErrorCode {
+    return ErrorCode::kSuccess;
+  }
+
   virtual auto SetSpeakerMorphingWeight(int /*target_speaker*/,
                                         double /*morphing weight*/
                                         )      // NOLINT(whitespace/parens)
