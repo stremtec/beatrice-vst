@@ -3,8 +3,9 @@
 #ifndef BEATRICE_VST_PROCESSOR_H_
 #define BEATRICE_VST_PROCESSOR_H_
 
-#include <map>
+#include <array>
 #include <mutex>  // NOLINT(build/c++11)
+#include <utility>
 
 #include "vst3sdk/pluginterfaces/base/ibstream.h"
 #include "vst3sdk/pluginterfaces/vst/ivstaudioprocessor.h"
@@ -41,6 +42,7 @@ class Processor : public Steinberg::Vst::AudioEffect {
   auto PLUGIN_API setupProcessing(ProcessSetup& setup) -> tresult SMTG_OVERRIDE;
   auto PLUGIN_API setActive(TBool state) -> tresult SMTG_OVERRIDE;
   auto PLUGIN_API process(ProcessData& data) -> tresult SMTG_OVERRIDE;
+  auto PLUGIN_API getLatencySamples() -> uint32 SMTG_OVERRIDE;
 
   auto PLUGIN_API setState(IBStream* state) -> tresult SMTG_OVERRIDE;
   auto PLUGIN_API getState(IBStream* state) -> tresult SMTG_OVERRIDE;
@@ -55,8 +57,12 @@ class Processor : public Steinberg::Vst::AudioEffect {
  private:
   std::mutex mtx_;
   common::ProcessorProxy vc_core_;
-  // メモリ確保が挟まるのが望ましくないが……
-  std::map<ParamID, ParamValue> unreflected_params_;
+  double sample_rate_ = 0.0;
+  // オーディオスレッドでのヒープ確保を避けるために固定長配列を使うの
+  static constexpr int kMaxParamChangesPerBlock = 64;
+  std::array<std::pair<ParamID, ParamValue>, kMaxParamChangesPerBlock>
+      unreflected_params_{};
+  int unreflected_params_count_ = 0;
 };
 
 }  // namespace beatrice::vst

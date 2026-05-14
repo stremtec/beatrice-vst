@@ -33,7 +33,7 @@ Controller::~Controller() {
 auto PLUGIN_API Controller::initialize(FUnknown* const context) -> tresult {
   const tresult result = EditController::initialize(context);
   if (result != kResultTrue) {
-    return kResultTrue;  // ???
+    return kResultTrue;  // 二重初期化時にホストがプラグインを破棄しないようにする
   }
 
   for (const auto& [param_id, param] : common::kSchema) {

@@ -2,6 +2,7 @@
 
 #include "vst/processor.h"
 
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <mutex>  // NOLINT(build/c++11)
@@ -80,9 +81,18 @@ auto PLUGIN_API Processor::setupProcessing(ProcessSetup& setup) -> tresult {
   if (setup.symbolicSampleSize == Steinberg::Vst::kSample64) {
     return kResultFalse;
   }
+  sample_rate_ = setup.sampleRate;
   const auto error_code = vc_core_.SetSampleRate(setup.sampleRate);
   assert(error_code == common::ErrorCode::kSuccess);
   return AudioEffect::setupProcessing(setup);
+}
+
+// 48kHz での 480 サンプル分のブロックバッファリング遅延を DAW に報告するわね
+auto PLUGIN_API Processor::getLatencySamples() -> uint32 {
+  if (sample_rate_ <= 0.0) {
+    return 0;
+  }
+  return static_cast<uint32>(std::lround(480.0 * sample_rate_ / 48000.0));
 }
 
 auto PLUGIN_API Processor::setActive(const TBool state) -> tresult {
@@ -119,7 +129,18 @@ auto PLUGIN_API Processor::process(ProcessData& data) -> tresult {
           kResultTrue) {
         continue;
       }
-      unreflected_params_[param_queue->getParameterId()] = value;
+      const auto id = param_queue->getParameterId();
+      bool found = false;
+      for (int i = 0; i < unreflected_params_count_; ++i) {
+        if (unreflected_params_[i].first == id) {
+          unreflected_params_[i].second = value;
+          found = true;
+          break;
+        }
+      }
+      if (!found && unreflected_params_count_ < kMaxParamChangesPerBlock) {
+        unreflected_params_[unreflected_params_count_++] = {id, value};
+      }
     }
   }
 
@@ -137,7 +158,8 @@ auto PLUGIN_API Processor::process(ProcessData& data) -> tresult {
     return kResultTrue;
   }
 
-  for (const auto [vst_param_id, value] : unreflected_params_) {
+  for (int i = 0; i < unreflected_params_count_; ++i) {
+    const auto [vst_param_id, value] = unreflected_params_[i];
     const auto param_id = static_cast<common::ParameterID>(vst_param_id);
     const auto& param = common::kSchema.GetParameter(param_id);
     if (const auto* const num_param =
@@ -156,7 +178,7 @@ auto PLUGIN_API Processor::process(ProcessData& data) -> tresult {
       assert(error_code == common::ErrorCode::kSuccess);
     }
   }
-  unreflected_params_.clear();
+  unreflected_params_count_ = 0;
 
   if (data.numInputs == 0 || data.numOutputs == 0 || data.numSamples == 0) {
     // 何もしない
